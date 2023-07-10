@@ -147,12 +147,56 @@
                         {% endfor %}
 
                     </div>
+                    <div class="single-widget-area news-widget mb-30">
+                        <h4>Related News</h4>
+
+                        {% if similar_posts %}
+                        {% for post in similar_posts %}
+                        
+                        <p>No related news articles found.</p>
+                          <!-- Single News Area -->
+                          <div class="single-blog-post d-flex style-4 mb-30">
+                            <!-- Blog Thumbnail -->
+                            <div class="blog-thumbnail">
+                                <a href=""><img src="{{post.banner_path.url}}" alt="{{post.title}}"></a>
+                            </div>
+
+                            <!-- Blog Content -->
+                            <div class="blog-content">
+                                <span class="post-date">{{post.date_created|date:"M d, Y"}}</span>
+                                <a href="" class="post-title">{{post.title}}</a>
+                            </div>
+                        </div>
+                        {% endfor %}
+
+                        {% else %}
+                        <p>no related post</p>
+                        {% endif %}
+
+                    </div>
 
                 </div>
             </div>
         </div>
     </div>
 </section>
+{% comment %} {% if similar_posts %}
+  <div class="recommended-posts">
+    <h3>Recommended Posts</h3>
+    <ul>
+      {% for post in similar_posts %}
+        <li>
+          <a href="">{{ post.title }}</a>
+        </li>
+      {% endfor %}
+    </ul>
+  </div>
+{% else %}
+
+    <p>No related news</p>
+
+{% endif %} {% endcomment %}
+
 {% endblock content %} {% block javascripts %}
 <script>
     $(function() {

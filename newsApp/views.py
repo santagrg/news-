@@ -1,3 +1,4 @@
+import math
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
@@ -171,58 +172,78 @@ def save_post(request):
 
 
 # BACKUP
-def view_post(request, pk=None):
-    context = context_data()
-    post = models.Post.objects.get(id = pk)
-    context['page'] = 'post'
-    context['page_title'] = post.title
-    context['post'] = post
-    context['latest'] = models.Post.objects.exclude(id=pk).filter(status = 1).order_by('-date_created').all()[:10]
-    context['comments'] = models.Comment.objects.filter(post=post).all()
-    context['actions'] = False
-    if request.user.is_superuser or request.user.id == post.user.id:
-        context['actions'] = True
-    return render(request, 'single_post.html', context)
-
-
-# def recommend_similar_posts(clicked_post, top_n=4):
-#     # Preprocess and vectorize the text data
-#     posts = models.Post.objects.exclude(pk=clicked_post.pk)
-#     texts = [post.title + " " + post.short_description + " " + post.content for post in posts]
-#     vectorizer = TfidfVectorizer()
-#     feature_vectors = vectorizer.fit_transform(texts)
-
-#     # Calculate similarity scores
-#     clicked_post_vector = vectorizer.transform([clicked_post.title + " " + clicked_post.short_description + " " + clicked_post.content])
-#     similarity_scores = cosine_similarity(clicked_post_vector, feature_vectors).flatten()
-
-#  # Get the top 4 most similar posts
-#     top_indices = similarity_scores.argsort()[::-1][1:4 + 1]
-
-#     # Convert the list to an integer
-#     top_index = int(top_indices[0])
-
-#     # Get the post at the specified index
-#     similar_post = models.Post.objects.get(pk=top_index)
-
-#     return similar_posts
-
 # def view_post(request, pk=None):
 #     context = context_data()
-#     index = int(pk)
-#     post = models.Post.objects.get(pk=index)
-#     context["page"] = "post"
-#     context["page_title"] = post.title
-#     context["post"] = post
-#     context["latest"] = models.Post.objects.exclude(pk=pk).filter(status=1).order_by("-date_created")[:10]
-#     context["comments"] = models.Comment.objects.filter(post=post)
-#     context["actions"] = request.user.is_superuser or request.user.id == post.user.id
+#     post = models.Post.objects.get(id = pk)
+#     context['page'] = 'post'
+#     context['page_title'] = post.title
+#     context['post'] = post
+#     context['latest'] = models.Post.objects.exclude(id=pk).filter(status = 1).order_by('-date_created').all()[:10]
+#     context['comments'] = models.Comment.objects.filter(post=post).all()
+#     context['actions'] = False
+#     if request.user.is_superuser or request.user.id == post.user.id:
+#         context['actions'] = True
+#     return render(request, 'single_post.html', context)
 
-#     # Retrieve similar posts
-#     similar_posts = recommend_similar_posts(post)
-#     context["similar_posts"] = similar_posts
 
-#     return render(request, "single_post.html", context)
+def view_post(request, pk=None):
+    context = context_data()
+    post = models.Post.objects.get(id=pk)
+    context["page"] = "post"
+    context["page_title"] = post.title
+    context["post"] = post
+    context["latest"] = (
+        models.Post.objects.exclude(id=pk)
+        .filter(status=1)
+        .order_by("-date_created")[:4]
+    )
+    context["comments"] = models.Comment.objects.filter(post=post).all()
+    context["actions"] = False
+
+    if request.user.is_superuser or request.user.id == post.user.id:
+        context["actions"] = True
+
+    similar_posts = ml_recommendation_system(post, top_n=4)
+    # Retrieve similar posts using ML recommendation system
+    if not similar_posts:
+        context["no_related_news"] = True
+    else:
+        context["similar_posts"] = similar_posts
+
+    return render(request, "single_post.html", context)
+
+
+def ml_recommendation_system(post, top_n=4):
+    try:
+        # Preprocess and vectorize the text data
+        category = post.category
+
+        # posts = models.Post.objects.exclude(pk=post.pk, category=category)
+        posts = models.Post.objects.filter(category=category).exclude(pk=post.pk)
+        texts = [
+            post.title + " " + post.short_description + " " + post.content
+            for post in posts
+        ]
+        vectorizer = TfidfVectorizer()
+        feature_vectors = vectorizer.fit_transform(texts)
+
+        # Calculate similarity scores
+        post_vector = vectorizer.transform(
+            [post.title + " " + post.short_description + " " + post.content]
+        )
+        similarity_scores = cosine_similarity(post_vector, feature_vectors).flatten()
+
+        # Get the indices of the top similar posts
+        top_indices = similarity_scores.argsort()[::-1][:top_n]
+
+        # Retrieve the top similar posts
+        similar_posts = [posts[idx] for idx in top_indices.tolist()]
+
+        return similar_posts
+    except ValueError as e:
+        print(str(e))
+        return []
+
 
 def save_comment(request):
     resp = {"status": "failed", "msg": "", "id": None}
